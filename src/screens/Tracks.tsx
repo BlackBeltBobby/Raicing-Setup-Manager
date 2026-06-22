@@ -3,7 +3,7 @@ import { useStore } from '../store'
 import type { Nav } from '../nav'
 
 export function Tracks({ nav }: { nav: Nav }) {
-  const { games } = useStore()
+  const { games, addTrack, deleteTrack } = useStore()
   const [q, setQ] = useState('')
   const game = games.find((g) => g.id === nav.current.gameId)
   if (!game) return <NotFound nav={nav} what="game" />
@@ -11,6 +11,17 @@ export function Tracks({ nav }: { nav: Nav }) {
   const filtered = game.tracks.filter((t) =>
     t.name.toLowerCase().includes(q.trim().toLowerCase()),
   )
+
+  const onNew = () => {
+    const name = window.prompt('Name this track', 'New track')
+    if (name === null) return
+    addTrack(game.id, name)
+  }
+
+  const onDelete = (id: string, name: string) => {
+    if (window.confirm(`Delete “${name}” and all its cars and setups?`))
+      deleteTrack(game.id, id)
+  }
 
   return (
     <div className="screen">
@@ -27,31 +38,44 @@ export function Tracks({ nav }: { nav: Nav }) {
         onChange={(e) => setQ(e.target.value)}
       />
       <div className="screen-scroll tight">
-        {filtered.map((t, i) => (
-          <button
-            key={t.id}
-            className={`row ${i === 0 ? 'selected' : ''}`}
-            onClick={() =>
-              nav.push({ view: 'cars', gameId: game.id, trackId: t.id })
-            }
-          >
-            <div>
-              <div className="name">{t.name}</div>
-              <div className="meta">
-                {t.cars.length ? `${t.cars.length} cars` : 'no cars yet'}
+        {filtered.map((t) => (
+          <div className="row-wrap" key={t.id}>
+            <button
+              className="row"
+              onClick={() =>
+                nav.push({ view: 'cars', gameId: game.id, trackId: t.id })
+              }
+            >
+              <div>
+                <div className="name">{t.name}</div>
+                <div className="meta">
+                  {t.cars.length ? `${t.cars.length} cars` : 'no cars yet'}
+                </div>
               </div>
-            </div>
-            <span className="chev">›</span>
-          </button>
-        ))}
-        {game.tracks.length === 0 && (
-          <div className="empty">
-            No tracks for {game.name} yet.
-            <br />
-            This game is a stub in the demo data.
+              <span className="chev">›</span>
+            </button>
+            <button
+              className="row-del"
+              aria-label={`Delete ${t.name}`}
+              onClick={() => onDelete(t.id, t.name)}
+            >
+              🗑
+            </button>
           </div>
+        ))}
+        {game.tracks.length === 0 ? (
+          <div className="empty">No tracks saved yet.</div>
+        ) : (
+          filtered.length === 0 && (
+            <div className="empty">No tracks match “{q}”.</div>
+          )
         )}
         <div style={{ height: 8 }} />
+      </div>
+      <div className="footer">
+        <button className="btn-primary" onClick={onNew}>
+          ＋ New track
+        </button>
       </div>
     </div>
   )

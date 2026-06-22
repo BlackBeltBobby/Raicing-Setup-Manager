@@ -83,6 +83,16 @@ button {
     max-height: 100vh;
     border: none;
     border-radius: 0;
+    /* Clear the real OS status bar / notch & home indicator on a device. */
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  /* The fake "9:41" bar is desktop-frame set-dressing; on a real device the OS
+     draws the status bar, so hide ours to avoid a double bar. The `.phone`
+     prefix raises specificity above the base `.statusbar` rule that follows
+     this block in source order. */
+  .phone .statusbar {
+    display: none;
   }
 }
 
@@ -213,6 +223,34 @@ button {
 }
 .row.selected .chev {
   color: var(--accent);
+}
+
+/* a row paired with an inline delete button */
+.row-wrap {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+}
+.row-wrap .row {
+  flex: 1;
+  min-width: 0;
+}
+.row-del {
+  flex: none;
+  width: 48px;
+  border: 2px solid var(--line);
+  border-radius: 16px;
+  background: transparent;
+  font-size: 18px;
+  color: var(--muted);
+  transition: border-color 0.12s, color 0.12s, transform 0.06s;
+}
+.row-del:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.row-del:active {
+  transform: scale(0.97);
 }
 
 .thumb {
@@ -420,6 +458,57 @@ button {
   padding: 2px 7px;
   border: 1.5px solid var(--line);
   border-radius: 20px;
+}
+.cond-btn {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: inherit;
+  background: none;
+  cursor: pointer;
+}
+.cond-btn:active {
+  background: var(--track-bg);
+}
+.cond-stepper {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 1px 4px;
+}
+.cond-mini {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 1.5px solid var(--line);
+  background: none;
+  font-size: 15px;
+  line-height: 1;
+  color: inherit;
+}
+.cond-mini:disabled {
+  opacity: 0.35;
+}
+
+/* editable setup name in the editor header */
+.name-edit {
+  background: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.edit-hint {
+  font-size: 12px;
+  color: var(--muted-2);
+}
+
+/* delete action at the bottom of the editor */
+.editor-foot {
+  padding: 10px 18px 14px;
+  flex: none;
+}
+.btn-ghost.danger {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 /* stepper rows */

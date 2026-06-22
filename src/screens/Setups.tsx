@@ -13,6 +13,10 @@ export function Setups({ nav }: { nav: Nav }) {
   if (!game || !track || !car) return <NotFound nav={nav} what="car" />
 
   const setups = car.setups[track.id] ?? []
+  // Highlight the genuinely most-recently-edited setup, not a fixed row.
+  const recentId = setups.length
+    ? setups.reduce((a, b) => (b.updated > a.updated ? b : a)).id
+    : null
 
   const onNew = () => {
     const name = window.prompt('Name this setup', 'Race · 70 min')
@@ -36,10 +40,10 @@ export function Setups({ nav }: { nav: Nav }) {
         <h2 className="title sm">{track.name} setups</h2>
       </div>
       <div className="screen-scroll">
-        {setups.map((s, i) => (
+        {setups.map((s) => (
           <button
             key={s.id}
-            className={`card ${i === 0 ? 'selected' : ''}`}
+            className={`card ${s.id === recentId ? 'selected' : ''}`}
             onClick={() =>
               nav.push({
                 view: 'editor',
@@ -59,7 +63,7 @@ export function Setups({ nav }: { nav: Nav }) {
         ))}
         {setups.length === 0 && (
           <div className="empty">
-            No setups saved here yet.
+            No setups saved yet.
             <br />
             Tap “New setup” to start one.
           </div>

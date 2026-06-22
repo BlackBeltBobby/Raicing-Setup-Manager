@@ -88,10 +88,6 @@ function TabBar({ active, nav }: { active: View; nav: Nav }) {
         <span className="ico">▤</span>
         <span>Garage</span>
       </button>
-      <button className="tab" onClick={() => nav.setTab('garage')}>
-        <span className="ico">＋</span>
-        <span>New</span>
-      </button>
       <button
         className={`tab ${active === 'settings' ? 'active' : ''}`}
         onClick={() => nav.setTab('settings')}

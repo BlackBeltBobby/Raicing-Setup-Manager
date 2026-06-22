@@ -3,12 +3,23 @@ import { useStore } from '../store'
 import type { Nav } from '../nav'
 
 export function Garage({ nav }: { nav: Nav }) {
-  const { games } = useStore()
+  const { games, addGame, deleteGame } = useStore()
   const [q, setQ] = useState('')
 
   const filtered = games.filter((g) =>
     g.name.toLowerCase().includes(q.trim().toLowerCase()),
   )
+
+  const onNew = () => {
+    const name = window.prompt('Name this game', 'New game')
+    if (name === null) return
+    addGame(name)
+  }
+
+  const onDelete = (id: string, name: string) => {
+    if (window.confirm(`Delete “${name}” and all its tracks, cars, and setups?`))
+      deleteGame(id)
+  }
 
   return (
     <div className="screen">
@@ -23,12 +34,10 @@ export function Garage({ nav }: { nav: Nav }) {
         onChange={(e) => setQ(e.target.value)}
       />
       <div className="screen-scroll">
-        {filtered.map((g) => {
-          const selected = g.id === 'acc'
-          return (
+        {filtered.map((g) => (
+          <div className="row-wrap" key={g.id}>
             <button
-              key={g.id}
-              className={`row ${selected ? 'selected' : ''}`}
+              className="row"
               onClick={() => nav.push({ view: 'tracks', gameId: g.id })}
             >
               <div>
@@ -41,10 +50,28 @@ export function Garage({ nav }: { nav: Nav }) {
               </div>
               <span className="chev">›</span>
             </button>
+            <button
+              className="row-del"
+              aria-label={`Delete ${g.name}`}
+              onClick={() => onDelete(g.id, g.name)}
+            >
+              🗑
+            </button>
+          </div>
+        ))}
+        {games.length === 0 ? (
+          <div className="empty">No games saved yet.</div>
+        ) : (
+          filtered.length === 0 && (
+            <div className="empty">No games match “{q}”.</div>
           )
-        })}
-        {filtered.length === 0 && <div className="empty">No games match “{q}”.</div>}
+        )}
         <div style={{ height: 8 }} />
+      </div>
+      <div className="footer">
+        <button className="btn-primary" onClick={onNew}>
+          ＋ New game
+        </button>
       </div>
     </div>
   )

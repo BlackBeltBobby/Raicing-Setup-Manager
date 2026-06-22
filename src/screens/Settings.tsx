@@ -27,6 +27,8 @@ export function Settings() {
                 key={name}
                 className={`swatch ${prefs.accent === name ? 'active' : ''}`}
                 onClick={() => setPrefs({ accent: name })}
+                aria-pressed={prefs.accent === name}
+                aria-label={`Accent ${name}`}
               >
                 <span className="dot" style={{ background: ACCENTS[name] }} />
                 {name.split(' ')[0]}
@@ -87,6 +89,7 @@ function Toggle({
       className="pref"
       style={{ width: '100%', textAlign: 'left', background: 'none' }}
       onClick={onToggle}
+      aria-pressed={on}
     >
       <div className="pref-top">
         <div>
