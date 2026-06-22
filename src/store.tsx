@@ -7,7 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
-import type { Game, Prefs, Setup } from './types'
+import type { Car, Game, Prefs, Setup, Track } from './types'
 import { blankSheet, seedGames, uid } from './data'
 
 const GAMES_KEY = 'rspm.games.v1'
@@ -33,8 +33,22 @@ interface Store {
   prefs: Prefs
   setPrefs: (patch: Partial<Prefs>) => void
   resetAll: () => void
-  // mutations
+  // mutations — games / tracks / cars
+  addGame: (name: string) => string
+  deleteGame: (gameId: string) => void
+  addTrack: (gameId: string, name: string) => string
+  deleteTrack: (gameId: string, trackId: string) => void
+  addCar: (gameId: string, trackId: string, name: string) => string
+  deleteCar: (gameId: string, trackId: string, carId: string) => void
+  // mutations — setups
   addSetup: (gameId: string, trackId: string, carId: string, name: string) => string
+  updateSetup: (
+    gameId: string,
+    trackId: string,
+    carId: string,
+    setupId: string,
+    patch: Partial<Pick<Setup, 'name' | 'weather' | 'trackTempC' | 'fuelL'>>,
+  ) => void
   updateSetting: (
     gameId: string,
     trackId: string,
@@ -107,6 +121,74 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     [],
   )
 
+  // Rebuild the tree while mutating one game's track list.
+  const mutateTracks = useCallback(
+    (gameId: string, fn: (tracks: Track[]) => Track[]) => {
+      setGames((gs) =>
+        gs.map((g) => (g.id !== gameId ? g : { ...g, tracks: fn(g.tracks) })),
+      )
+    },
+    [],
+  )
+
+  // Rebuild the tree while mutating one track's car list.
+  const mutateCars = useCallback(
+    (gameId: string, trackId: string, fn: (cars: Car[]) => Car[]) => {
+      mutateTracks(gameId, (tracks) =>
+        tracks.map((t) => (t.id !== trackId ? t : { ...t, cars: fn(t.cars) })),
+      )
+    },
+    [mutateTracks],
+  )
+
+  const addGame = useCallback((name: string) => {
+    const id = uid('game')
+    setGames((gs) => [...gs, { id, name: name.trim() || 'New game', tracks: [] }])
+    return id
+  }, [])
+
+  const deleteGame = useCallback((gameId: string) => {
+    setGames((gs) => gs.filter((g) => g.id !== gameId))
+  }, [])
+
+  const addTrack = useCallback(
+    (gameId: string, name: string) => {
+      const id = uid('track')
+      mutateTracks(gameId, (tracks) => [
+        ...tracks,
+        { id, name: name.trim() || 'New track', cars: [] },
+      ])
+      return id
+    },
+    [mutateTracks],
+  )
+
+  const deleteTrack = useCallback(
+    (gameId: string, trackId: string) => {
+      mutateTracks(gameId, (tracks) => tracks.filter((t) => t.id !== trackId))
+    },
+    [mutateTracks],
+  )
+
+  const addCar = useCallback(
+    (gameId: string, trackId: string, name: string) => {
+      const id = uid('car')
+      mutateCars(gameId, trackId, (cars) => [
+        ...cars,
+        { id, name: name.trim() || 'New car', setups: {} },
+      ])
+      return id
+    },
+    [mutateCars],
+  )
+
+  const deleteCar = useCallback(
+    (gameId: string, trackId: string, carId: string) => {
+      mutateCars(gameId, trackId, (cars) => cars.filter((c) => c.id !== carId))
+    },
+    [mutateCars],
+  )
+
   const addSetup = useCallback(
     (gameId: string, trackId: string, carId: string, name: string) => {
       const id = uid('setup')
@@ -123,6 +205,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         ...setups,
       ])
       return id
+    },
+    [mutateCar],
+  )
+
+  const updateSetup = useCallback(
+    (
+      gameId: string,
+      trackId: string,
+      carId: string,
+      setupId: string,
+      patch: Partial<Pick<Setup, 'name' | 'weather' | 'trackTempC' | 'fuelL'>>,
+    ) => {
+      mutateCar(gameId, trackId, carId, (setups) =>
+        setups.map((s) =>
+          s.id !== setupId ? s : { ...s, ...patch, updated: Date.now() },
+        ),
+      )
     },
     [mutateCar],
   )
@@ -168,11 +267,33 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       prefs,
       setPrefs,
       resetAll,
+      addGame,
+      deleteGame,
+      addTrack,
+      deleteTrack,
+      addCar,
+      deleteCar,
       addSetup,
+      updateSetup,
       updateSetting,
       deleteSetup,
     }),
-    [games, prefs, setPrefs, resetAll, addSetup, updateSetting, deleteSetup],
+    [
+      games,
+      prefs,
+      setPrefs,
+      resetAll,
+      addGame,
+      deleteGame,
+      addTrack,
+      deleteTrack,
+      addCar,
+      deleteCar,
+      addSetup,
+      updateSetup,
+      updateSetting,
+      deleteSetup,
+    ],
   )
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>

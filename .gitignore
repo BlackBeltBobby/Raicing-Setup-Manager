@@ -5,3 +5,11 @@ dist-ssr
 .DS_Store
 .vite
 *.tsbuildinfo
+
+# Local Xcode build output (from xcodebuild -derivedDataPath)
+build/
+
+# Capacitor / iOS native build artifacts (the ios/ project itself is committed)
+ios/App/Pods/
+ios/App/App/public/
+DerivedData/

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState, type TouchEvent } from 'react'
 import { useStore } from '../store'
 import type { Nav } from '../nav'
 import type { Setting } from '../types'
@@ -11,7 +11,7 @@ import {
 import { NotFound } from './Tracks'
 
 export function Editor({ nav }: { nav: Nav }) {
-  const { games, prefs, updateSetting } = useStore()
+  const { games, prefs, updateSetting, updateSetup, deleteSetup } = useStore()
   const { gameId, trackId, carId, setupId } = nav.current
   const [midRace, setMidRace] = useState(false)
   const [focusIdx, setFocusIdx] = useState(0)
@@ -25,22 +25,43 @@ export function Editor({ nav }: { nav: Nav }) {
   const apply = (setting: Setting, value: number) =>
     updateSetting(game.id, track.id, car.id, setup.id, setting.id, value)
 
+  const patch = (p: Parameters<typeof updateSetup>[4]) =>
+    updateSetup(game.id, track.id, car.id, setup.id, p)
+
+  const rename = () => {
+    const name = window.prompt('Rename this setup', setup.name)
+    if (name === null) return
+    patch({ name: name.trim() || setup.name })
+  }
+
+  const remove = () => {
+    if (!window.confirm(`Delete “${setup.name}”? This can't be undone.`)) return
+    deleteSetup(game.id, track.id, car.id, setup.id)
+    nav.back()
+  }
+
   const showRanges = prefs.showRanges
 
   return (
     <div className="screen">
       <div className="editor-head">
-        <button className="crumb" onClick={nav.back}>
+        <button className="crumb" onClick={nav.back} aria-label="Back">
           <span className="chev">‹</span>
         </button>
-        <span className="mid">{setup.name}</span>
+        <button className="mid name-edit" onClick={rename}>
+          {setup.name} <span className="edit-hint">✎</span>
+        </button>
         <button className="linkish" onClick={nav.back}>
-          Save
+          Done
         </button>
       </div>
 
       {/* mid-race toggle */}
-      <button className="toggle-wrap" onClick={() => setMidRace((m) => !m)}>
+      <button
+        className="toggle-wrap"
+        onClick={() => setMidRace((m) => !m)}
+        aria-pressed={midRace}
+      >
         <div>
           <div className="toggle-label">Mid-race mode</div>
           <div className="toggle-sub">one big setting at a time</div>
@@ -50,11 +71,36 @@ export function Editor({ nav }: { nav: Nav }) {
         </span>
       </button>
 
-      {/* conditions */}
+      {/* conditions — tap to edit */}
       <div className="conditions">
-        <span className="cond">{setup.trackTempC}°C</span>
-        {setup.fuelL != null && <span className="cond">⛽ {setup.fuelL}L</span>}
-        <span className="cond">{setup.weather === 'Wet' ? '🌧 Wet' : '☀ Dry'}</span>
+        <button
+          className="cond cond-btn"
+          onClick={() =>
+            patch({ weather: setup.weather === 'Wet' ? 'Dry' : 'Wet' })
+          }
+        >
+          {setup.weather === 'Wet' ? '🌧 Wet' : '☀ Dry'}
+        </button>
+        <CondStepper
+          label={`${setup.trackTempC}°C`}
+          atMin={setup.trackTempC <= 5}
+          atMax={setup.trackTempC >= 50}
+          onDec={() => patch({ trackTempC: setup.trackTempC - 1 })}
+          onInc={() => patch({ trackTempC: setup.trackTempC + 1 })}
+        />
+        {setup.fuelL != null ? (
+          <CondStepper
+            label={`⛽ ${setup.fuelL}L`}
+            atMin={setup.fuelL <= 0}
+            atMax={setup.fuelL >= 140}
+            onDec={() => patch({ fuelL: Math.max(0, setup.fuelL! - 1) })}
+            onInc={() => patch({ fuelL: Math.min(140, setup.fuelL! + 1) })}
+          />
+        ) : (
+          <button className="cond cond-btn" onClick={() => patch({ fuelL: 50 })}>
+            ⛽ add fuel
+          </button>
+        )}
       </div>
 
       {midRace ? (
@@ -72,7 +118,50 @@ export function Editor({ nav }: { nav: Nav }) {
           apply={apply}
         />
       )}
+
+      <div className="editor-foot">
+        <button className="btn-ghost danger" onClick={remove}>
+          🗑 Delete setup
+        </button>
+      </div>
     </div>
+  )
+}
+
+// A compact ± control that lives inside the conditions row.
+function CondStepper({
+  label,
+  atMin,
+  atMax,
+  onDec,
+  onInc,
+}: {
+  label: string
+  atMin: boolean
+  atMax: boolean
+  onDec: () => void
+  onInc: () => void
+}) {
+  return (
+    <span className="cond cond-stepper">
+      <button
+        className="cond-mini"
+        disabled={atMin}
+        onClick={onDec}
+        aria-label={`decrease ${label}`}
+      >
+        –
+      </button>
+      <span>{label}</span>
+      <button
+        className="cond-mini"
+        disabled={atMax}
+        onClick={onInc}
+        aria-label={`increase ${label}`}
+      >
+        +
+      </button>
+    </span>
   )
 }
 
@@ -119,6 +208,7 @@ function StepperRow({
             className="step-btn minus"
             disabled={atMin}
             onClick={() => apply(setting, stepValue(setting, -1))}
+            aria-label={`decrease ${setting.label}`}
           >
             –
           </button>
@@ -127,6 +217,7 @@ function StepperRow({
             className="step-btn plus"
             disabled={atMax}
             onClick={() => apply(setting, stepValue(setting, 1))}
+            aria-label={`increase ${setting.label}`}
           >
             +
           </button>
@@ -179,6 +270,24 @@ function FocusMode({
   const atMax = setting.value >= setting.max
   const frac = rangeFraction(setting)
 
+  const prev = () => setIdx(idx > 0 ? idx - 1 : settings.length - 1)
+  const next = () => setIdx(idx < settings.length - 1 ? idx + 1 : 0)
+
+  // Horizontal swipe on the focus body changes the active setting (the design's
+  // "swipe to change setting" promise, table-stakes for the touch / iOS build).
+  const touchX = useRef<number | null>(null)
+  const onTouchStart = (e: TouchEvent) => {
+    touchX.current = e.changedTouches[0].clientX
+  }
+  const onTouchEnd = (e: TouchEvent) => {
+    if (touchX.current === null) return
+    const dx = e.changedTouches[0].clientX - touchX.current
+    touchX.current = null
+    if (Math.abs(dx) < 40) return
+    if (dx < 0) next()
+    else prev()
+  }
+
   return (
     <>
       <div className="focus-chips">
@@ -193,7 +302,11 @@ function FocusMode({
         ))}
       </div>
 
-      <div className="focus-body">
+      <div
+        className="focus-body"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+      >
         <div className="focus-label">{setting.label}</div>
         <div className="focus-value">{formatValue(setting)}</div>
         <div className="focus-unit">{setting.unit || '—'}</div>
@@ -216,6 +329,7 @@ function FocusMode({
           className="focus-big-btn minus"
           disabled={atMin}
           onClick={() => apply(setting, clampToRange(setting, setting.value - setting.step))}
+          aria-label={`decrease ${setting.label}`}
         >
           –
         </button>
@@ -228,23 +342,18 @@ function FocusMode({
           className="focus-big-btn plus"
           disabled={atMax}
           onClick={() => apply(setting, clampToRange(setting, setting.value + setting.step))}
+          aria-label={`increase ${setting.label}`}
         >
           +
         </button>
       </div>
 
       <div className="focus-hint">
-        <button
-          className="linkish"
-          onClick={() => setIdx(idx > 0 ? idx - 1 : settings.length - 1)}
-        >
+        <button className="linkish" onClick={prev} aria-label="Previous setting">
           ←
         </button>
         {'  '}swipe to change setting{'  '}
-        <button
-          className="linkish"
-          onClick={() => setIdx(idx < settings.length - 1 ? idx + 1 : 0)}
-        >
+        <button className="linkish" onClick={next} aria-label="Next setting">
           →
         </button>
       </div>
